@@ -12,7 +12,7 @@ The following steps describe the algorithm:
 1. Create list of unmarked natural numbers 2, 3, …, n
 2. k ← 2
 3. Repeat
-    1. Mark all multiples of k between k^2 and n
+    1. Mark all multiples of k between 2k and n
     1. k ← smallest unmarked number > k
     1. // until k^2 > n
 4. The unmarked numbers are primes.
