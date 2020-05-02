@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-__uint8_t* get_primes(int n)
+__uint8_t* get_primes(long long int n)
 {
     __uint8_t* p = malloc(sizeof(__uint8_t) * n); //smallest data type possible
 
