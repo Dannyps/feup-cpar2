@@ -1,38 +1,47 @@
+#include "bitter.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-__uint8_t* get_primes(long long int n)
+bitter* get_primes(long long int n)
 {
-    __uint8_t* p = malloc(sizeof(__uint8_t) * n); //smallest data type possible
+    bitter* b = create_bitter(n);
 
-    if (p == NULL) {
+    printf("Using %lld bytes to store %lld bits (%lld bits unused).\n", b->effectiveN, b->origN, b->effectiveN * 8 - b->origN);
+
+    if (b == NULL) {
         return NULL;
     }
 
+    printf("Setting all bits to one... ");
     for (long long int i = 0; i < n; i++) {
-        p[i] = 1;
+        setbit(b, i, 1);
     }
 
+    printf("done.\n");
+
     for (long long int i = 2; i < sqrt(n); i++) {
-        if (p[i] == 1) {
+        if (getbit(b, i) == 1) {
             long long int j, k = 0;
             for (j = i * i + i * k; j < n; j = i * i + i * k) {
-                p[j] = 0;
+                setbit(b, j, 0);
                 k++;
             }
         }
     }
 
-    return p;
+    return b;
 }
 
 int main(int argc, char** argv)
 {
-    int print = 0;
-    if (argc != 2) {
+    if (argc < 2) {
         fprintf(stderr, "Please provide a number! Use: %s <number> \n", argv[0]);
         return 1;
+    }
+    char print = 0;
+    if (argc == 3) {
+        print = atoi(argv[2]);
     }
 
     long long int n = atoll(argv[1]);
@@ -43,16 +52,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    __uint8_t* primes = get_primes(n);
+    bitter* b = get_primes(n);
     printf("Returned\n");
-    if (primes == NULL) {
+    if (b == NULL) {
         printf("Could not allocate RAM.\n");
         return 2;
     }
 
     unsigned int c = 0;
     for (long long int i = 2; i < n; i++) {
-        if (primes[i]) {
+        if (getbit(b, i) == 1) {
             if (print)
                 printf("%lld\t", i);
             c++;
@@ -60,6 +69,7 @@ int main(int argc, char** argv)
     }
     printf("\nFound %d prime numbers.\n", c);
 
-    free(primes);
+    free(b->data);
+    free(b);
     return 0;
 }
