@@ -25,6 +25,8 @@ typedef struct {
  */
 bitter* create_bitter(unsigned long long n);
 
+int fill(bitter* b, __uint128_t val);
+
 __int8_t setbit(bitter* b, unsigned long long n, __uint128_t val);
 
 __int8_t getbit(bitter* b, unsigned long long n);

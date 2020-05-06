@@ -1,6 +1,6 @@
 # The Sieve of Erastosthenes 
 
-
+## Algorithm
 The Sieve of Eratosthenes is a simple algorithm to find the prime numbers up to a given number n.
 
 Consider the following implementations:
@@ -20,6 +20,23 @@ The following steps describe the algorithm:
 
 The time complexity of the algorithm is O(n ln ln n).
 Data range to consider (n): from 2^25 to 2^32.
+
+
+## Building 
+
+1. `cd src`
+1. `make` will compile all versions (1: sequential, 2: OMP, 3: MPI)
+
+## Running
+
+### Sequential version
+
+`./SoE_seq <max_number> <print=0>`
+
+### OMP version
+
+`./SoE_seq <max_number> <print=0>`
+
 
 ## Authors
 * Daniel Silva
