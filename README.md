@@ -35,7 +35,7 @@ Data range to consider (n): from 2^25 to 2^32.
 
 ### OMP version
 
-`./SoE_seq <max_number> <print=0>`
+`./SoE_omp <max_number> <print=0>`
 
 
 ## Authors
