@@ -46,7 +46,8 @@ Make sure you have MPI installed:
 > If you're running on WSL, make sure to disable ptrace_scope: `echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope` vide also: https://medium.com/@amithkk/setting-up-visual-studio-code-and-wsl-for-mpi-develoment-8df55758a31c
 
 Run the program with: 
-`mpirun -np <nThreads> ./a.out`
+`mpicc main.c -lm`
+`mpirun -np <nThreads> ./a.out <n>`
 
 ## Authors
 * Daniel Silva
