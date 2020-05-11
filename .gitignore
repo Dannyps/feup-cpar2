@@ -54,3 +54,4 @@ dkms.conf
 out/
 .vscode
 build/
+a.out

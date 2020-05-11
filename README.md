@@ -37,6 +37,16 @@ Data range to consider (n): from 2^25 to 2^32.
 
 `./SoE_omp <max_number> <print=0>`
 
+## MPI version
+
+Make sure you have MPI installed:
+
+`sudo apt install openmpi-bin libopenmpi-dev`
+
+> If you're running on WSL, make sure to disable ptrace_scope: `echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope` vide also: https://medium.com/@amithkk/setting-up-visual-studio-code-and-wsl-for-mpi-develoment-8df55758a31c
+
+Run the program with: 
+`mpirun -np <nThreads> ./a.out`
 
 ## Authors
 * Daniel Silva
