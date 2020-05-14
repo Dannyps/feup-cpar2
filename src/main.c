@@ -24,9 +24,7 @@ void init_papi()
     if (retval < 0)
         handle_papi_error(retval);
 
-    std::cout << "PAPI Version Number: MAJOR: " << PAPI_VERSION_MAJOR(retval)
-              << " MINOR: " << PAPI_VERSION_MINOR(retval)
-              << " REVISION: " << PAPI_VERSION_REVISION(retval) << "\n";
+    fprintf(stderr, "PAPI Version Number: MAJOR: %d,  MINOR: %d  REVISION: %d\n", PAPI_VERSION_MAJOR(retval), PAPI_VERSION_MINOR(retval), PAPI_VERSION_REVISION(retval));
 }
 
 bitter* get_primes(unsigned long long int n)
