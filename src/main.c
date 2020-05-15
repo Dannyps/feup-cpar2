@@ -1,11 +1,31 @@
 #include <math.h>
 #include <omp.h>
+#include <papi.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 #include "bitter.h"
 #include "timer.c"
+
+void handle_papi_error(int retval)
+{
+    printf("PAPI error %d: %s\n", retval, PAPI_strerror(retval));
+    exit(1);
+}
+
+void init_papi()
+{
+    int retval = PAPI_library_init(PAPI_VER_CURRENT);
+    if (retval != PAPI_VER_CURRENT && retval < 0) {
+        printf("PAPI library version mismatch!\n");
+        exit(1);
+    }
+    if (retval < 0)
+        handle_papi_error(retval);
+
+    fprintf(stderr, "PAPI Version Number: MAJOR: %d,  MINOR: %d  REVISION: %d\n", PAPI_VERSION_MAJOR(retval), PAPI_VERSION_MINOR(retval), PAPI_VERSION_REVISION(retval));
+}
 
 bitter* get_primes(unsigned long long int n)
 {
@@ -46,6 +66,41 @@ bitter* get_primes(unsigned long long int n)
 
 int main(int argc, char** argv)
 {
+
+    //Set up PAPI events
+    int EventSet = PAPI_NULL;
+    long long values[4] = { 0 }; // initialize array to 0
+    int ret;
+
+    ret = PAPI_library_init(PAPI_VER_CURRENT);
+    if (ret != PAPI_VER_CURRENT)
+        fprintf(stderr, "[Error] PAPI_library_init\n");
+
+    ret = PAPI_create_eventset(&EventSet);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_create_eventset\n");
+
+    ret = PAPI_add_event(EventSet, PAPI_L1_DCM);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_L1_DCM\n");
+
+    ret = PAPI_add_event(EventSet, PAPI_L2_DCM);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_L2_DCM\n");
+
+    ret = PAPI_add_event(EventSet, PAPI_L1_DCH);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_L1_DCH\n");
+
+    ret = PAPI_add_event(EventSet, PAPI_L2_DCH);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_L2_DCH\n");
+
+    // Start counting hardware events
+    ret = PAPI_start(EventSet);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] Start PAPI\n");
+
     struct timespec start2, start = getStart();
 
     if (argc < 2) {
@@ -96,13 +151,18 @@ int main(int argc, char** argv)
     }
     fprintf(stderr, "done. Found %lld prime numbers.\n", c);
     double count_time = getTime(start2);
+
+    ret = PAPI_stop(EventSet, values);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI Stop\n");
+    printf("L1 DCM: %lld \n", values[0]);
+    printf("L2 DCM: %lld \n", values[1]);
+    printf("L1 DCH: %lld \n", values[2]);
+    printf("L2 DCH: %lld \n", values[3]);
+
     fprintf(stderr, "[TIME] get_primes:	%f s\n", get_primes_time);
     fprintf(stderr, "[TIME] count:		%f s\n", count_time);
     fprintf(stderr, "[TIME] TOTAL:		%f s\n", getTime(start));
-<<<<<<< Updated upstream
-=======
-
-    fprintf(stderr, "%f\t%f\t%f\t%lld\t%lld\n", get_primes_time, count_time, getTime(start), values[0], values[1]);
 
     ret = PAPI_remove_event(EventSet, PAPI_L1_DCM);
 	if (ret != PAPI_OK)
@@ -115,7 +175,6 @@ int main(int argc, char** argv)
 	ret = PAPI_destroy_eventset(&EventSet);
 	if (ret != PAPI_OK)
 		fprintf(stderr, "[Error] PAPI_destroy_eventset\n");
->>>>>>> Stashed changes
     delete_bitter(b);
     return EXIT_SUCCESS;
 }

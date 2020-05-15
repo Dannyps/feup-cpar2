@@ -11,10 +11,10 @@ CFLAGS  = -g -Wall -Wextra -O2 -Wno-unknown-pragmas
 all: clean src/SoE_seq src/SoE_omp
 
 src/SoE_seq: build src/bitter.o src/main.c
-	$(CC) $(CFLAGS) src/bitter.o src/main.c -lm -o build/SoE_seq
+	$(CC) $(CFLAGS) src/bitter.o src/main.c -lm -lpapi -o build/SoE_seq
 
 src/SoE_omp: build src/bitter.o src/main.c
-	$(CC) $(CFLAGS) src/bitter.o src/main.c -lm -DOMP -fopenmp -o build/SoE_omp
+	$(CC) $(CFLAGS) src/bitter.o src/main.c -lm -DOMP -fopenmp -lpapi -o build/SoE_omp
 
 src/bitter.o: src/bitter.c
 	$(CC) $(CFLAGS) -c src/bitter.c -o src/bitter.o 
