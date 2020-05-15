@@ -4,6 +4,26 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define BLOCK_FIRST 3 /* first odd prime number */
+#define BLOCK_STEP 2 /* loop step to iterate only for odd numbers */
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
+#define BLOCK_LOW(id, p, n) \
+    ((id) * (n) / (p) / BLOCK_STEP)
+
+#define BLOCK_HIGH(id, p, n) \
+    (BLOCK_LOW((id) + 1, p, n) - 1)
+
+#define BLOCK_SIZE(id, p, n) \
+    (BLOCK_LOW((id) + 1, p, n) - BLOCK_LOW((id), p, n))
+
+#define BLOCK_OWNER(index, p, n) \
+    (((p) * ((index) + 1) - 1) / (n))
+
+#define BLOCK_VALUE_TO_INDEX(val, id, p, n) \
+    (val - BLOCK_FIRST) / BLOCK_STEP - BLOCK_LOW(id, p, n - 1)
+
 double getTime(double time)
 {
     return MPI_Wtime() - time;
@@ -19,7 +39,6 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     unsigned long long n;
-    unsigned char* p;
     unsigned char print;
     unsigned long long start;
     unsigned long long end;
@@ -55,61 +74,110 @@ int main(int argc, char** argv)
 
     // The workload must be split throughout the processes into equal size contiguous blocks
     // for each process, get the values of the first and last elems and the number of elems
-    start = floor(rank * (n - 2) / size) + 2;
-    end = floor((rank + 1) * (n - 2) / size) + 1;
-    block_size = end - start + 1;
+    start = BLOCK_FIRST + BLOCK_LOW(rank, size, n - 1) * BLOCK_STEP;
+    end = BLOCK_FIRST + BLOCK_HIGH(rank, size, n - 1) * BLOCK_STEP;
+    block_size = BLOCK_SIZE(rank, size, n - 1);
 
-    // init memory
-    p = malloc(block_size * sizeof(char));
-    memset(p, 1, block_size);
+    // find all primes from 2 to sqrtn
 
-    unsigned long long i = 2;
-    while (i * i <= n) {
-        unsigned long long ifm;
-        if (start % i == 0)
-            ifm = 0;
-        else
-            ifm = i - start % i;
-
-        // from this first multiple, mark as non-prime every kth element
-        for (unsigned long long j = ifm; j < block_size; j += i) {
-            p[j] = 0;
-        }
-
-        if (rank == 0)
-            p[i - 2] = 1;
-
-        // set the next value of i to the smallest "true" number > current i
-        // thread0 is in charge to find this value and broadcast it
-        // note that this value is in thread 0 because we ensured that n/p > sqrt(n)
-        if (rank == 0) {
-            unsigned long long ni = i + 1;
-            while (!p[ni - 2])
-                ni = ni + 1;
-
-            i = ni; //index to real value
-        }
-        // Now we found the next value of i, we must broadcast it to the other threads
-        MPI_Bcast(&i, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    //square root of n
+    unsigned sqrtn = sqrt(n);
+    char* primes = malloc((sqrtn + 1) * sizeof(char));
+    memset(primes, 1, (sqrtn + 1));
+    unsigned pm;
+    for (pm = 2; pm <= sqrt(n); pm += 2) {
+        primes[pm] = 0;
     }
+    // the currently under analysis prime
+    unsigned prime;
+    for (prime = 3; prime <= sqrtn; prime += 2) {
+        if (primes[prime] == 0)
+            continue;
+
+        for (pm = prime << 1; pm <= sqrtn; pm += prime) {
+            //printf("setting %d as non prime from seed %d\n", pm, prime);
+            primes[pm] = 0;
+        }
+    }
+
+    // for (int i = 0; rank == 0 && i < sqrtn + 1; i++) {
+    //     printf("primes[%d] = %d\n", i, primes[i]);
+    // }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    /* 
+     * allocate this process' share of the array 
+     */
+
+    char* marked = malloc(block_size * sizeof(char));
+    memset(marked, 1, block_size);
+
+    if (marked == NULL) {
+        printf("Cannot allocate enough memory\n");
+        MPI_Finalize();
+        exit(1);
+    }
+
+    //printf("%d/%d got start=%lld, end=%lld, block_size=%lld\n", rank, size, start, end, block_size);
+
+    unsigned first;
+    for (prime = 3; prime <= sqrtn; prime++) {
+        if (primes[prime] == 0)
+            continue;
+        if (prime * prime > start) {
+            first = prime * prime;
+        } else {
+            if (!(start % prime)) {
+                first = start;
+            } else {
+                first = prime - (start % prime) + start;
+            }
+        }
+
+        if ((first + prime) & 1) // is odd
+            first += prime;
+
+        unsigned long first_value_index = (first - 3) / 2 - BLOCK_LOW(rank, size, n - 1);
+        unsigned long prime_doubled = prime << 1;
+        unsigned prime_step = prime_doubled / BLOCK_STEP;
+
+        for (unsigned long i = first; i <= end; i += prime_doubled) {
+            marked[first_value_index] = 0;
+            first_value_index += prime_step;
+        }
+    }
+
     double get_primes_time = getTime(start_time);
     count_start_time = MPI_Wtime();
+    /* 
+     * count the number of prime numbers found on this process 
+     */
 
     local_sum = 0;
-    for (i = 0; i < block_size; i++) {
-        if (p[i])
+    for (unsigned long i = 0; i < block_size; i++) {
+        if (marked[i]) {
+            //printf("[%d] prime: %lld\n", rank, start + i * 2);
             local_sum++;
+        }
     }
-    MPI_Reduce(&local_sum, &global_sum, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        local_sum++; // number 2
+    }
+
     double count_time = getTime(count_start_time);
+    //fprintf(stderr, "[%d][TIME] count_time:	%f s\n", rank, count_time);
+    MPI_Reduce(&local_sum, &global_sum, 1, MPI_UINT64_T, MPI_SUM, 0, MPI_COMM_WORLD);
     if (rank == 0) {
         fprintf(stderr, "done. Found %lld prime numbers.\n", global_sum);
         fprintf(stderr, "[TIME] get_primes:	%f s\n", get_primes_time);
         fprintf(stderr, "[TIME] count:		%f s\n", count_time);
         fprintf(stderr, "[TIME] TOTAL:		%f s\n", getTime(start_time));
+        fprintf(stderr, "%f\t%f\t%f\n", get_primes_time, count_time, getTime(start_time));
     }
 
-    free(p);
+    free(marked);
+    free(primes);
 
     MPI_Finalize();
 
