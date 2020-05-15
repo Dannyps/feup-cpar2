@@ -99,6 +99,23 @@ int main(int argc, char** argv)
     fprintf(stderr, "[TIME] get_primes:	%f s\n", get_primes_time);
     fprintf(stderr, "[TIME] count:		%f s\n", count_time);
     fprintf(stderr, "[TIME] TOTAL:		%f s\n", getTime(start));
+<<<<<<< Updated upstream
+=======
+
+    fprintf(stderr, "%f\t%f\t%f\t%lld\t%lld\n", get_primes_time, count_time, getTime(start), values[0], values[1]);
+
+    ret = PAPI_remove_event(EventSet, PAPI_L1_DCM);
+	if (ret != PAPI_OK)
+		fprintf(stderr, "[Error] PAPI_remove_event\n");
+
+	ret = PAPI_remove_event(EventSet, PAPI_L2_DCM);
+	if (ret != PAPI_OK)
+		fprintf(stderr, "[Error] PAPI_remove_event\n");
+
+	ret = PAPI_destroy_eventset(&EventSet);
+	if (ret != PAPI_OK)
+		fprintf(stderr, "[Error] PAPI_destroy_eventset\n");
+>>>>>>> Stashed changes
     delete_bitter(b);
     return EXIT_SUCCESS;
 }
