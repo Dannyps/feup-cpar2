@@ -1,6 +1,7 @@
 #include <math.h>
 #include <omp.h>
 #include <papi.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -64,8 +65,75 @@ bitter* get_primes(unsigned long long int n)
     return b;
 }
 
+#define BLOCK_LOW(id, p, n) \
+    ((id) * (n) / (p))
+#define BLOCK_HIGH(id, p, n) \
+    (BLOCK_LOW((id) + 1, p, n) - 1)
+#define BLOCK_SIZE(id, p, n) \
+    (BLOCK_HIGH(id, p, n) - BLOCK_LOW(id, p, n) + 1)
+
+void block(unsigned long long int n)
+{
+    /** Starting prime for all threads */
+    unsigned long long k = 2;
+
+#pragma omp parallel num_threads(3)
+    {
+        /** The thread identifier */
+        int id = omp_get_thread_num();
+        /** Number of threads running */
+        int num_threads = omp_get_num_threads();
+        /** This thread lower allocated number */
+        int lower_num = 2 + BLOCK_LOW(id, num_threads, n);
+        /** This thread higher allocated number (can exceed `n`?) */
+        int higher_num = 2 + BLOCK_HIGH(id, num_threads, n);
+        /** This thread block size, i.e., how many numbers it will process */
+        int block_size = BLOCK_SIZE(id, num_threads, n);
+        
+        printf("Hello from thread %d | Start: %d | End: %d\n", id, lower_num, higher_num);
+
+        /** Allocate memory for this thread's block of prime numbers */
+        uint8_t* my_block = (uint8_t*)calloc(1, block_size);
+        
+        /** 
+         * Compute the index where this thread should start marking numbers.
+         * If the lower number of this block is multiple of `k` we start at index 0
+         * Otherwise, we need to find the first index that maps to a number multiple of `k`
+         */
+        int first_index = 0;
+        if(lower_num % k != 0) {
+            do {
+                first_index++;
+            } while((lower_num + first_index) % k != 0);
+        }
+        printf("Hello from thread %d. My starting index is %d\n", id, first_index);
+
+        /**
+         * Mark all multiples of `k` in this thread's block of numbers
+         */
+        for (int i = first_index; i < block_size; i += k) {
+            my_block[i] = 1;
+        }
+
+        /** 
+         * Barrier for waiting for all threads before updating the value of `k`
+         * Only thread 0 can update its value
+         */
+        #pragma omp barrier
+        if(id == 0) {
+            // find closest unmarked number (the next prime)
+            while(my_block[++first_index]);
+            k = first_index + 2;
+            printf("Found next prime: %d\n", k);
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
+    long long int my_n = atoll(argv[1]);
+    block(my_n);
+    return 0;
 
     //Set up PAPI events
     int EventSet = PAPI_NULL;
@@ -165,16 +233,16 @@ int main(int argc, char** argv)
     fprintf(stderr, "[TIME] TOTAL:		%f s\n", getTime(start));
 
     ret = PAPI_remove_event(EventSet, PAPI_L1_DCM);
-	if (ret != PAPI_OK)
-		fprintf(stderr, "[Error] PAPI_remove_event\n");
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_remove_event\n");
 
-	ret = PAPI_remove_event(EventSet, PAPI_L2_DCM);
-	if (ret != PAPI_OK)
-		fprintf(stderr, "[Error] PAPI_remove_event\n");
+    ret = PAPI_remove_event(EventSet, PAPI_L2_DCM);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_remove_event\n");
 
-	ret = PAPI_destroy_eventset(&EventSet);
-	if (ret != PAPI_OK)
-		fprintf(stderr, "[Error] PAPI_destroy_eventset\n");
+    ret = PAPI_destroy_eventset(&EventSet);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_destroy_eventset\n");
     delete_bitter(b);
     return EXIT_SUCCESS;
 }
