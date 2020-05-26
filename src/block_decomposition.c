@@ -107,7 +107,7 @@ void naive_block_decomposition(uint64_t n)
     printf("Found %ld primes\n", count);
 }
 
-void block_decomposition_no_evens(uint64_t n)
+void no_evens_block_decomposition(uint64_t n)
 {
     /** Starting prime for all threads */
     uint64_t k = 3;
@@ -119,14 +119,15 @@ void block_decomposition_no_evens(uint64_t n)
         uint8_t id = omp_get_thread_num();
         /** Number of threads running */
         uint8_t num_threads = omp_get_num_threads();
-        /** This thread lower allocated number */
+        /** This thread lowest allocated number */
         uint64_t lower_num = 2 + BLOCK_LOW(id, num_threads, n);
-        /** This thread higher allocated number. If it exceeds `n`, adjust it */
+        /** This thread highest allocated number. If it exceeds `n`, adjust it */
         uint64_t higher_num = 2 + BLOCK_HIGH(id, num_threads, n);
         if (higher_num > n)
             higher_num = n;
         /** This thread block size, i.e., how many numbers it will process */
         uint64_t block_size = higher_num - lower_num + 1;
+
         /** 
          * Adjust the lower and higher numbers (and block size) for this block to discard even numbers
          */
@@ -160,10 +161,10 @@ void block_decomposition_no_evens(uint64_t n)
         }
         else {
             /** If both extremes values are odd, we have odd block size */
-            block_size = ceil(block_size/2);
+            block_size = ceil(block_size/2.0);
         }
         
-        //printf("Hello from thread %d | Start: %ld | End: %ld\n", id, lower_num, higher_num);
+        //printf("Hello from thread %d | Start: %ld | End: %ld | Block Size: %ld\n", id, lower_num, higher_num, block_size);
 
         /**
          * Allocate memory for this thread's block of prime numbers.
@@ -199,7 +200,7 @@ void block_decomposition_no_evens(uint64_t n)
              */
             for (uint64_t i = first_index; i < block_size; i += k) {
                 my_block[i] = 1;
-                //printf("Hello from thread %d. Marked %ld as non-prime\n", id, lower_num + i);
+                //printf("Hello from thread %d. Marked %ld as non-prime\n", id, lower_num + i*2);
             }
 
             /** 
@@ -221,7 +222,19 @@ void block_decomposition_no_evens(uint64_t n)
 
         uint64_t local_count = 0;
         for (uint64_t i = 0; i < block_size; i++) {
-            if (my_block[i] == 0)
+            if (my_block[i] == 0) {
+                local_count++;
+                //printf("Hello from thread %d. Number %ld is prime\n", id, lower_num + i*2);
+            }
+        }
+        free(my_block);
+        #pragma omp atomic
+        count += local_count;
+    }
+
+    printf("Done!\n");
+    printf("Found %ld primes\n", count);
+}
                 local_count++;
         }
         free(my_block);
@@ -293,7 +306,7 @@ int main(int argc, char** argv)
     }
 
     //naive_block_decomposition(n);
-    block_decomposition_no_evens(n);
+    no_evens_block_decomposition(n);
 
     ret = PAPI_stop(EventSet, values);
     if (ret != PAPI_OK)
