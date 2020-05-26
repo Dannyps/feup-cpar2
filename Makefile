@@ -16,6 +16,9 @@ src/SoE_seq: build src/bitter.o src/main.c
 src/SoE_omp: build src/bitter.o src/main.c
 	$(CC) $(CFLAGS) src/bitter.o src/main.c -lm -DOMP -fopenmp -lpapi -o build/SoE_omp
 
+src/SoE_omp_block: build src/block_decomposition.c
+	$(CC) $(CFLAGS) src/block_decomposition.c -lm -DOMP -fopenmp -lpapi -o build/SoE_omp_block
+
 src/bitter.o: src/bitter.c
 	$(CC) $(CFLAGS) -c src/bitter.c -o src/bitter.o 
 
