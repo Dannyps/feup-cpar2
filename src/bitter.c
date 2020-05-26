@@ -8,8 +8,6 @@ bitter *create_bitter(unsigned long long n) {
 	bitter *b = malloc(sizeof(bitter));
 	b->origN = n;
 	b->effectiveN = ceil(n / 8.0);
-
-	fprintf(stderr, "Trying to malloc %llu bytes... ", b->effectiveN);
 	b->data = malloc(b->effectiveN);
 	if (b->data == NULL) {
 		return NULL;
