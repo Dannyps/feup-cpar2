@@ -119,32 +119,34 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    //printf("%d/%d got start=%lld, end=%lld, block_size=%lld\n", rank, size, start, end, block_size);
+    printf("%d/%d got start=%lld, end=%lld, block_size=%lld\n", rank, size, start, end, block_size);
 
     unsigned first;
     for (prime = 3; prime <= sqrtn; prime++) {
         if (primes[prime] == 0)
             continue;
         if (prime * prime > start) {
+            printf("%d/%d got start=%lld, prime=%ld A ", rank, size, start, prime);
             first = prime * prime;
         } else {
-            if (!(start % prime)) {
+            if (start % prime == 0) {
+                printf("%d/%d got start=%lld, prime=%ld B ", rank, size, start, prime);
                 first = start;
             } else {
+                printf("%d/%d got start=%lld, prime=%ld C ", rank, size, start, prime);
                 first = prime - (start % prime) + start;
             }
         }
+        printf("first=%ld\n", first);
 
-        if ((first + prime) & 1) // is odd
+        if ((first + prime) % 2) // is odd
             first += prime;
 
         unsigned long first_value_index = (first - 3) / 2 - BLOCK_LOW(rank, size, n - 1);
-        unsigned long prime_doubled = prime << 1;
-        unsigned prime_step = prime_doubled / BLOCK_STEP;
 
-        for (unsigned long i = first; i <= end; i += prime_doubled) {
+        for (unsigned long i = first; i <= end; i += prime*2) {
             marked[first_value_index] = 0;
-            first_value_index += prime_step;
+            first_value_index += prime;
         }
     }
 
