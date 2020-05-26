@@ -1,6 +1,7 @@
 #include <math.h>
 #include <omp.h>
 #include <papi.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -66,7 +67,6 @@ bitter* get_primes(unsigned long long int n)
 
 int main(int argc, char** argv)
 {
-
     //Set up PAPI events
     int EventSet = PAPI_NULL;
     long long values[4] = { 0 }; // initialize array to 0
@@ -165,16 +165,16 @@ int main(int argc, char** argv)
     fprintf(stderr, "[TIME] TOTAL:		%f s\n", getTime(start));
 
     ret = PAPI_remove_event(EventSet, PAPI_L1_DCM);
-	if (ret != PAPI_OK)
-		fprintf(stderr, "[Error] PAPI_remove_event\n");
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_remove_event\n");
 
-	ret = PAPI_remove_event(EventSet, PAPI_L2_DCM);
-	if (ret != PAPI_OK)
-		fprintf(stderr, "[Error] PAPI_remove_event\n");
+    ret = PAPI_remove_event(EventSet, PAPI_L2_DCM);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_remove_event\n");
 
-	ret = PAPI_destroy_eventset(&EventSet);
-	if (ret != PAPI_OK)
-		fprintf(stderr, "[Error] PAPI_destroy_eventset\n");
+    ret = PAPI_destroy_eventset(&EventSet);
+    if (ret != PAPI_OK)
+        fprintf(stderr, "[Error] PAPI_destroy_eventset\n");
     delete_bitter(b);
     return EXIT_SUCCESS;
 }
