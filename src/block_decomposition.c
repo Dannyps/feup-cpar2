@@ -113,7 +113,7 @@ void no_evens_block_decomposition(uint64_t n)
     uint64_t k = 3;
     uint64_t count = 1; // count with the only even number: 2
     uint64_t prime_index = 0;
-    #pragma omp parallel
+    #pragma omp parallel num_threads(4)
     {
         /** The thread identifier */
         uint8_t id = omp_get_thread_num();
@@ -140,7 +140,7 @@ void no_evens_block_decomposition(uint64_t n)
                  * If both are even, then the extremes are removed (-2).
                  * Then we cut the block size in half to discard remaining evens
                  */
-                block_size = ceil((block_size - 2)/2);
+                block_size = ceil((block_size - 2)/2.0);
                 higher_num--;
             } else {
                 /**
@@ -235,12 +235,144 @@ void no_evens_block_decomposition(uint64_t n)
     printf("Done!\n");
     printf("Found %ld primes\n", count);
 }
+
+void own_sieving_block_decomposition(uint64_t n)
+{
+    /** Compute a list of primes in range 2..sqrt(n) */
+    uint64_t k = 2;
+    uint64_t prime_index = 0;
+    uint64_t sqrt_n = ceil(sqrt((double)n));
+    uint8_t *pre_seived = calloc(1, sqrt_n);
+    do {
+        for(uint64_t i = k*k; i <= sqrt_n; i += k) {
+            // mark as non-prime (index 0 maps to 2, index 1 to 3, ...)
+            pre_seived[i - 2] = 1;
+        }
+        // find the next smallest prime
+        do { prime_index++; } while(pre_seived[prime_index] == 1);
+        k = prime_index + 2;
+    } while(k*k <= sqrt_n);
+
+    /*for(int i = 0; i < sqrt_n; i++)
+        if(pre_seived[i] == 0)
+            printf("Seeded prime: %ld\n", i + 2);*/
+
+    /** Starting prime for all threads */
+    k = 3;
+    prime_index = 1;
+    uint64_t count = 1; // count with the only even number: 2
+
+    #pragma omp parallel firstprivate(k, prime_index)
+    {
+        /** The thread identifier */
+        uint8_t id = omp_get_thread_num();
+        /** Number of threads running */
+        uint8_t num_threads = omp_get_num_threads();
+        /** This thread lower allocated number */
+        uint64_t lower_num = 2 + BLOCK_LOW(id, num_threads, n);
+        /** This thread higher allocated number. If it exceeds `n`, adjust it */
+        uint64_t higher_num = 2 + BLOCK_HIGH(id, num_threads, n);
+        if (higher_num > n)
+            higher_num = n;
+        /** This thread block size, i.e., how many numbers it will process */
+        uint64_t block_size = higher_num - lower_num + 1;
+        //printf("Hello from thread %d | Start: %ld | End: %ld | Block size: %ld\n", id, lower_num, higher_num, block_size);
+        /** 
+         * Adjust the lower and higher numbers (and block size) for this block to discard even numbers
+         */
+        if(lower_num % 2 == 0) {
+            /** if lower is even, then increment it */
+            lower_num++;
+
+            if(higher_num % 2 == 0) {
+                /** 
+                 * If both are even, then the extremes are removed (-2).
+                 * Then we cut the block size in half to discard remaining evens
+                 */
+                block_size = ceil((block_size - 2)/2.0);
+                higher_num--;
+            } else {
+                /**
+                 * If we reach here, then we have a even block size
+                 * It's enough to compute half of the block size
+                 */
+                block_size = block_size / 2;
+            }
+        }
+        else if (higher_num % 2 == 0) {
+            /** if higher number is even, decrement it */
+            higher_num--;
+            /**
+             * The block is even because lower_num is odd and higher_num is even
+             * It's enough to compute half of the block size
+             */
+            block_size = block_size / 2;
+        }
+        else {
+            /** If both extremes values are odd, we have odd block size */
+            block_size = ceil(block_size/2.0);
+        }
+        
+        //printf("Hello from thread %d | Start: %ld | End: %ld | Block size: %ld\n", id, lower_num, higher_num, block_size);
+
+        /**
+         * Allocate memory for this thread's block of prime numbers.
+         * Memory block is initialized to 0. Positions marked as 1 are non-prime numbers
+         */
+        uint8_t* my_block = (uint8_t*)calloc(1, block_size);
+
+        do {
+            /** 
+             * Compute the index where this thread should start marking numbers.
+             * 
+             * Each thread must mark numbers between: k^2 and n
+             * 
+             * Therefore, if the lower number is less than k, we compute the index for k*k.
+             * If this block is on the desired range, [ k^2, n], then check if the lower number
+             * of this block is multiple of `k`. If so, we start at index 0. Otherwise, we
+             * need to find the first index that maps to a number multiple of `k`
+             */
+            uint64_t first_index = 0;
+
+            if (lower_num < k * k) {
+                first_index = (k * k - lower_num)/2;
+            } else if (lower_num % k != 0) {
+                do {
+                    first_index++;
+                } while ((lower_num + ( 2 * first_index)) % k != 0);
+            }
+
+            //printf("Hello from thread %d. My starting index is %ld\n", id, first_index);
+
+            /**
+             * Mark all multiples of `k` in this thread's block of numbers
+             */
+            for (uint64_t i = first_index; i < block_size; i += k) {
+                my_block[i] = 1;
+                //printf("Hello from thread %d. Marked %ld as non-prime\n", id, lower_num + i*2);
+            }
+            /** 
+             * Barrier for waiting for all threads before updating the value of `k`
+             * Only thread 0 can update its value
+             */
+            while (pre_seived[++prime_index]);
+            k = prime_index + 2;
+            //printf("Hello from thead %d. Next prime seed: %ld\n", id, k);
+        } while (k * k <= n);
+
+        uint64_t local_count = 0;
+        for (uint64_t i = 0; i < block_size; i++) {
+            if (my_block[i] == 0) {
                 local_count++;
+                //printf("Hello from thread %d. Number %ld is prime\n", id, lower_num + i*2);
+            }
         }
         free(my_block);
         #pragma omp atomic
         count += local_count;
     }
+
+    free(pre_seived);
 
     printf("Done!\n");
     printf("Found %ld primes\n", count);
@@ -306,7 +438,8 @@ int main(int argc, char** argv)
     }
 
     //naive_block_decomposition(n);
-    no_evens_block_decomposition(n);
+    //no_evens_block_decomposition(n);
+    own_sieving_block_decomposition(n);
 
     ret = PAPI_stop(EventSet, values);
     if (ret != PAPI_OK)
