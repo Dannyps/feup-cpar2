@@ -31,11 +31,17 @@ Data range to consider (n): from 2^25 to 2^32.
 
 ### Sequential version
 
-`./SoE_seq <max_number> <print=0>`
+`build/SoE_seq <max_number> <print=0>`
 
-### OMP version
+### OMP:
 
-`./SoE_omp <max_number> <print=0>`
+#### naive version
+
+`build/SoE_omp <max_number> <print=0>`
+
+#### blocks version
+
+`build/SoE_omp_block <max_number>`
 
 ## MPI version
 
@@ -44,6 +50,8 @@ Make sure you have MPI installed:
 `sudo apt install openmpi-bin libopenmpi-dev`
 
 > If you're running on WSL, make sure to disable ptrace_scope: `echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope` vide also: https://medium.com/@amithkk/setting-up-visual-studio-code-and-wsl-for-mpi-develoment-8df55758a31c
+
+`cd mpi_src`
 
 Run the program with: 
 `mpicc main.c -lm`
